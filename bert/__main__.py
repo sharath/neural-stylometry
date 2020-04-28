@@ -90,7 +90,7 @@ def get_features(df, model, tokenizer, batch_size=256, max_len=512):
     num_batches = (df.shape[0] - 1) // batch_size + 1
     batch_features = []
 
-    for i in range(num_batches):
+    for i in tqdm(range(num_batches)):
         curr_padded = padded[i*batch_size:min(df.shape[0], i*batch_size + batch_size)]
         curr_mask = np.where(curr_padded != 0, 1, 0)
         input_ids = torch.tensor(curr_padded)
