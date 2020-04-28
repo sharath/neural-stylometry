@@ -83,18 +83,25 @@ tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
 model = model_class.from_pretrained(pretrained_weights)
 
 
-def get_features(df, model, tokenizer, max_len=512):
+def get_features(df, model, tokenizer, batch_size=256, max_len=512):
     tokenized_train = df['Text'].apply((lambda x: tokenizer.encode(x, add_special_tokens=True, max_length=max_len)))
     padded = np.array([i + [0] * (max_len - len(i)) for i in tokenized_train.values])
-    attn_mask = np.where(padded != 0, 1, 0)
 
-    input_ids = torch.tensor(padded)
-    attn_mask = torch.tensor(attn_mask)
+    num_batches = (df.shape[0] - 1) // batch_size + 1
+    batch_features = []
 
-    with torch.no_grad():
-        last_hidden_states = model(input_ids, attention_mask=attn_mask)
+    for i in range(num_batches):
+        curr_padded = padded[i*batch_size:min(df.shape[0], i*batch_size + batch_size)]
+        curr_mask = np.where(curr_padded != 0, 1, 0)
+        input_ids = torch.tensor(curr_padded)
+        attn_mask = torch.tensor(curr_mask)
 
-    features = last_hidden_states[0][:, 0, :].numpy()
+        with torch.no_grad():
+            last_hidden_states = model(input_ids, attention_mask=attn_mask)
+        batch_features.append(last_hidden_states[0][:, 0, :].numpy())
+
+    features = np.concatenate(batch_features, axis=0)
+    print(features.shape)
     return features
 
 
