@@ -10,7 +10,7 @@ from common import get_dataset
 
 
 # Run this once!
-# nltk.download('words')
+nltk.download('words')
 
 
 def create_labels(path='dataset'):
