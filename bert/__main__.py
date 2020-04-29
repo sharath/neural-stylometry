@@ -106,6 +106,7 @@ def get_features(df, model, tokenizer, batch_size=256, max_len=512):
     return features
 
 
+print('Getting BERT features.')
 train_features = get_features(train, model, tokenizer)
 test_features = get_features(test, model, tokenizer)
 
