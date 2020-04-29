@@ -90,7 +90,7 @@ def get_features(df, model, tokenizer, batch_size=256, max_len=512):
     num_batches = (df.shape[0] - 1) // batch_size + 1
     batch_features = []
 
-    for i in tqdm(range(num_batches)):
+    for i in range(num_batches):
         curr_padded = padded[i*batch_size:min(df.shape[0], i*batch_size + batch_size)]
         curr_mask = np.where(curr_padded != 0, 1, 0)
         input_ids = torch.tensor(curr_padded)
@@ -112,6 +112,7 @@ test_features = get_features(test, model, tokenizer)
 train_labels = train['Label']
 test_labels = test['Label']
 
+print('Start training model.')
 clf = LogisticRegression(random_state=0, verbose=2, max_iter=1000, n_jobs=-1)
 clf.fit(train_features, y_train)
 print(clf.score(train_features, train_labels))
