@@ -99,9 +99,10 @@ def get_features(df, model, tokenizer, batch_size=256, max_len=512):
         with torch.no_grad():
             last_hidden_states = model(input_ids, attention_mask=attn_mask)
         batch_features.append(last_hidden_states[0][:, 0, :].numpy())
+        print(i, batch_features[i].shape)
 
     features = np.concatenate(batch_features, axis=0)
-    print(features.shape)
+    print('Feature shape: ', features.shape)
     return features
 
 
