@@ -51,7 +51,7 @@ words = set(nltk.corpus.words.words())
 def load_data(dataset, limit=512):
     print('Loading dataset into memory.')
     x, y = [], []
-    for label, files in tqdm(dataset.items()):
+    for label, files in dataset.items():
         for file in files:
             with open(file, 'r') as fp:
                 lines = fp.readlines()
@@ -70,6 +70,7 @@ def load_data(dataset, limit=512):
     return x, y
 
 
+print('Start loading data')
 train, test = get_dataset()
 x_train, y_train = load_data(train)
 x_test, y_test = load_data(test)
@@ -83,7 +84,7 @@ tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
 model = model_class.from_pretrained(pretrained_weights)
 
 
-def get_features(df, model, tokenizer, batch_size=256, max_len=512):
+def get_features(df, model, tokenizer, batch_size=128, max_len=512):
     tokenized_train = df['Text'].apply((lambda x: tokenizer.encode(x, add_special_tokens=True, max_length=max_len)))
     padded = np.array([i + [0] * (max_len - len(i)) for i in tokenized_train.values])
 
