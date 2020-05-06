@@ -159,10 +159,10 @@ loss = nn.CrossEntropyLoss()
 adam = optim.Adam(enron_net.parameters(), lr=2e-5)
 
 
-def train_model(model, criterion, optimizer, train_loader, epochs=20):
+def train_model(model, criterion, optimizer, loader, epochs=20):
     for epoch in range(epochs):
         running_loss = 0.0
-        for i, data in enumerate(train_loader):
+        for i, data in enumerate(loader):
             input_ids, attn_masks, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
 
             optimizer.zero_grad()
@@ -188,11 +188,11 @@ print('Loading trained model.')
 enron_net.load_state_dict(torch.load(PATH))
 
 
-def evaluate(model, test_loader):
+def evaluate(model, loader):
     correct = 0.0
     total = 0.0
     with torch.no_grad():
-        for data in test_loader:
+        for i, data in enumerate(loader):
             input_ids, attn_mask, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
             print(input_ids)
             outputs = model(input_ids, attn_mask)
