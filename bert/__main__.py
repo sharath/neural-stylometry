@@ -193,7 +193,7 @@ def evaluate(model, test_loader):
     total = 0.0
     with torch.no_grad():
         for data in test_loader:
-            input_ids, attn_mask, labels = data
+            input_ids, attn_mask, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
             outputs = model(input_ids, attn_mask)
             _, predicted = torch.max(outputs.data, 1)
             print(predicted.data.cpu().numpy())
