@@ -179,10 +179,12 @@ def train_model(model, criterion, optimizer, train_loader, epochs=20):
                 running_loss = 0.0
 
 
-train_model(enron_net, loss, adam, train_loader, epochs=3)
+# train_model(enron_net, loss, adam, train_loader, epochs=3)
 
 PATH = './enron_bert.pth'
-torch.save(enron_net.state_dict(), PATH)
+# torch.save(enron_net.state_dict(), PATH)
+
+enron_net.load_state_dict(torch.load(PATH))
 
 
 def evaluate(model, test_loader):
