@@ -34,7 +34,7 @@ exclude_headers = [
 
 
 def load_data(dataset, label_to_idx):
-    print('Loading dataset into memory.')
+    print('Loading dataset into memory.', flush=True)
     x, y = [], []
     for label, files in dataset.items():
         for file in files:
@@ -117,9 +117,9 @@ def main():
     device = 'cuda'
     epochs = 3
     learning_rate = 2e-5
-    batch_size = 32
+    batch_size = 16
     
-    print('Start loading data')
+    print('Start loading data', flush=True)
     
     train, test = get_dataset()
     label_to_idx, idx_to_label = create_labels(train)
@@ -184,7 +184,7 @@ def main():
         stats['loss'].append(np.mean(epoch_loss))
         stats['train_accuracy'].append(np.mean(train_accuracy))
         stats['test_accuracy'].append(np.mean(test_accuracy))
-        print(f"{stats['epoch'][-1]}\t{stats['loss'][-1]:.5f}\t{stats['train_accuracy'][-1]:.5f}\t{stats['test_accuracy'][-1]:.5f}")
+        print(f"{stats['epoch'][-1]}\t{stats['loss'][-1]:.5f}\t{stats['train_accuracy'][-1]:.5f}\t{stats['test_accuracy'][-1]:.5f}", flush=True)
         
         torch.save(model.state_dict(), f'bert-{epoch}.pth')
         torch.save(stats, f'bert-stats.pth')
