@@ -3,7 +3,7 @@ import nltk
 #nltk.download('words')
 import numpy as np
 from nltk.tokenize import word_tokenize
-from common import get_splits
+from common import get_dataset
 from sklearn.metrics import f1_score
 import torch
 import torch.nn as nn
@@ -84,7 +84,7 @@ class LogRegClassifier(nn.Module):
     
     
 def main():
-    train, test = get_splits()
+    train, test = get_dataset()
     x_train, y_train = load_data(train)
     x_test, y_test = load_data(test)
     
