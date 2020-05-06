@@ -160,9 +160,10 @@ adam = optim.Adam(enron_net.parameters(), lr=2e-5)
 
 
 def train_model(model, criterion, optimizer, loader, epochs=20):
-    loss_history = []
+    batch_history, epoch_history = [], []
     for epoch in range(epochs):
         running_loss = 0.0
+        epoch_loss = 0.0
         for i, data in enumerate(loader):
             input_ids, attn_masks, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
 
@@ -174,21 +175,25 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
             optimizer.step()
 
             loss_history.append(loss.item())
+            epoch_loss += loss.items()
 
             running_loss += loss.item()
-            if i % 100 == 99:
+            if i % 2000 == 1999:
                 print('[%d, %5d] loss: %.4f' %
-                      (epoch + 1, i + 1, running_loss / 100))
+                      (epoch + 1, i + 1, running_loss / 2000))
                 running_loss = 0.0
 
-    return np.array(loss_history)
+        epoch_history.append(epoch_loss)
+
+    return np.array(batch_history), np.array(epoch_history)
 
 
-loss_history = train_model(enron_net, loss, adam, train_loader, epochs=3)
-np.save(file='bert_loss', arr=loss_history)
+batch_losses, epoch_losses = train_model(enron_net, loss, adam, train_loader, epochs=3)
+np.save(file='bert_batch_loss', arr=batch_losses)
+np.save(file='bert_epoch_loss', arr=epoch_losses)
 
-PATH = './enron_bert.pth'
-# torch.save(enron_net.state_dict(), PATH)
+PATH = './enron_bert_new.pth'
+torch.save(enron_net.state_dict(), PATH)
 
 # print('Loading trained model.')
 # enron_net.load_state_dict(torch.load(PATH))
@@ -200,7 +205,6 @@ def evaluate(model, loader):
     with torch.no_grad():
         for i, data in enumerate(loader):
             input_ids, attn_mask, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
-            print(input_ids)
             outputs = model(input_ids, attn_mask)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
