@@ -1,18 +1,20 @@
 import os
 import nltk
 #nltk.download('words')
-#nltk.download('punkt')
 import numpy as np
 from nltk.tokenize import word_tokenize
 from common import get_dataset
-from tqdm import tqdm
-from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
 
 exclude_headers = [
     "Message-ID:",
     "Date:",
-    "From: phillip.allen@enron.com",
-    "To: outlook.team@enron.com",
+    "From:",
+    "To:",
     "Subject:",
     "Mime-Version:",
     "Content-Type:",
@@ -26,14 +28,12 @@ exclude_headers = [
     "X-FileName:"
 ]
 
-
 words = set(nltk.corpus.words.words())
-
 
 def load_data(dataset):
     print('Loading dataset into memory.')
     x, y = [], []
-    for label, files in tqdm(dataset.items()):
+    for label, files in dataset.items():
         for file in files:
             with open(file, 'r') as fp:
                 lines = fp.readlines()
@@ -43,10 +43,9 @@ def load_data(dataset):
                     for t in exclude_headers:
                         if t in line:
                             remove = True
-                    if remove:
-                        continue
-                    stripped.append(line)
-                tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower()) if i in words and '@enron.com' not in i]
+                    if not remove:
+                        stripped.append(line)
+                tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower())]
                 x.append(tokens)
                 y.append(label)
     return x, y
@@ -69,42 +68,87 @@ def bow(x, vocab_lookup=None):
             if word in vocab_lookup:
                 x[idx][vocab_lookup[word]] += 1
 
-    return np.array(x), vocab_lookup
+    return x, vocab_lookup
 
 
+class LogRegClassifier(nn.Module):
+    def __init__(self, num_features, num_classes):
+        super(LogRegClassifier, self).__init__()
+        self.seq = nn.Sequential(
+            nn.Linear(num_features, num_classes),
+        )
+    
+    def forward(self, x):
+        return self.seq(x)
+    
+    
+    
 def main():
     train, test = get_dataset()
-
-    debug = False
-    if debug:
-        train_subset = {}
-        for key, val in train.items():
-            if len(train_subset) == 4:
-                break
-            train_subset[key] = val
-        test_subset = {}
-        for key, val in test.items():
-            if len(test_subset) == 4:
-                break
-            test_subset[key] = val
-    
-        #train, = train_subset, test_subset
-
     x_train, y_train = load_data(train)
     x_test, y_test = load_data(test)
-
+    
     x_train, vocab = bow(x_train)
     x_test, _ = bow(x_test, vocab)
-
-    print(x_train.shape, x_test.shape)
-
     
-    clf = LogisticRegression(random_state=0, verbose=2, max_iter=1000, n_jobs=-1)
-    clf.fit(x_train, y_train)
-    print(clf.score(x_train, y_train))
-    print(clf.score(x_test, y_test))
-
-
-
+    mappings = {j:i for (i, j) in enumerate(set(y_train))}
+    
+    y_train = list(map(mappings.get, y_train))
+    y_test = list(map(mappings.get, y_test))
+    
+    train_dataset = TensorDataset(torch.tensor(x_train), torch.tensor(y_train))
+    test_dataset = TensorDataset(torch.tensor(x_test), torch.tensor(y_test))
+    
+    epochs = 100
+    batch_size = len(train_dataset)//4
+    learning_rate = 1e-2
+    device = 'cuda:1'
+    
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+    
+    model = LogRegClassifier(train_dataset[0][0].shape[0], len(mappings)).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.CrossEntropyLoss().to(device)
+    
+    stats = {'epoch':[], 'loss':[], 'train_accuracy':[], 'test_accuracy':[]}
+    for epoch in range(1, epochs+1):
+        epoch_loss = []
+        
+        model.train()
+        correct, total = 0, 0
+        for idx, (inpt, target) in enumerate(train_dataloader):
+            inpt, target = inpt.float().to(device), target.to(device)
+            model.zero_grad()
+            pred = model(inpt)
+            loss = criterion(pred, target)
+            loss.backward()
+            optimizer.step()
+            epoch_loss.append(loss.item())
+            
+            correct += torch.sum(pred.argmax(1) == target).item()
+            total += len(target)
+        train_accuracy = correct / total
+        
+        model.eval()
+        correct, total = 0, 0
+        for idx, (inpt, target) in enumerate(test_dataloader):
+            inpt, target = inpt.float().to(device), target.to(device)
+            pred = model(inpt)
+        
+            correct += torch.sum(pred.argmax(1) == target).item()
+            total += len(target)
+        test_accuracy = correct / total
+        
+        stats['epoch'].append(epoch)
+        stats['loss'].append(np.mean(epoch_loss))
+        stats['train_accuracy'].append(np.mean(train_accuracy))
+        stats['test_accuracy'].append(np.mean(test_accuracy))
+        print(f"{stats['epoch'][-1]}\t{stats['loss'][-1]:.5f}\t{stats['train_accuracy'][-1]:.5f}\t{stats['test_accuracy'][-1]:.5f}")
+        
+    model.save(model.state_dict(), 'bow-trained.pth')
+    torch.save(stats, 'bow-stats.pth')
+        
+        
 if __name__ == '__main__':
     main()
