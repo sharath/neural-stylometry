@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from transformers import *
 import nltk
@@ -155,7 +156,7 @@ test_loader = DataLoader(test_data, batch_size=64, num_workers=5)
 enron_net = BertEnron(config=config).to(device)
 
 loss = nn.CrossEntropyLoss()
-adam = optim.Adam(enron_net.parameters(), lr=1e-4)
+adam = optim.Adam(enron_net.parameters(), lr=2e-5)
 
 
 def train_model(model, criterion, optimizer, train_loader, epochs=20):
@@ -173,12 +174,12 @@ def train_model(model, criterion, optimizer, train_loader, epochs=20):
 
             running_loss += loss.item()
             if i % 100 == 99:
-                print('[%d, %5d] loss: %.3f' %
+                print('[%d, %5d] loss: %.4f' %
                       (epoch + 1, i + 1, running_loss / 100))
                 running_loss = 0.0
 
 
-train_model(enron_net, loss, adam, train_loader, epochs=2)
+train_model(enron_net, loss, adam, train_loader, epochs=3)
 
 PATH = './enron_bert.pth'
 torch.save(enron_net.state_dict(), PATH)
@@ -192,6 +193,7 @@ def evaluate(model, test_loader):
             input_ids, attn_mask, labels = data
             outputs = model(input_ids, attention_mask=attn_mask)
             _, predicted = torch.max(outputs.data, 1)
+            print(predicted.data.cpu().numpy())
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
@@ -199,5 +201,5 @@ def evaluate(model, test_loader):
 
 
 accuracy = evaluate(enron_net, test_loader)
-print('Accuracy of the network on the 10000 test images: %d %%' % (
+print('Accuracy of the network over the test set: %d %%' % (
     100 * accuracy))
