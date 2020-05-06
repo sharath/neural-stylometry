@@ -150,8 +150,8 @@ config = (BertModel, BertTokenizer, 'bert-base-uncased')
 train_data = EnronDataset(df=train, config=config)
 test_data = EnronDataset(df=test, config=config)
 
-train_loader = DataLoader(train_data, batch_size=64, num_workers=5)
-test_loader = DataLoader(test_data, batch_size=64, num_workers=5)
+train_loader = DataLoader(train_data, batch_size=8, num_workers=5)
+test_loader = DataLoader(test_data, batch_size=8, num_workers=5)
 
 enron_net = BertEnron(config=config).to(device)
 
