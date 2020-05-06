@@ -175,7 +175,7 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
             optimizer.step()
 
             batch_history.append(loss.item())
-            epoch_loss += loss.items()
+            epoch_loss += loss.item()
 
             running_loss += loss.item()
             if i % 2000 == 1999:
