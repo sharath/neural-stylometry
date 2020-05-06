@@ -116,9 +116,9 @@ class EnronDataset(Dataset):
     def __len__(self):
         return len(self.df)
 
-    def __getitem__(self, index):
-        text = self.df.loc[index, 'Text']
-        label = self.df.loc[index, 'Label']
+    def __getitem__(self, idx):
+        text = self.df.loc[idx, 'Text']
+        label = self.df.loc[idx, 'Label']
 
         tokenized_input = self.tokenizer.encode(text, add_special_tokens=True, max_length=self.max_len)
         padded_input = np.array([tokenized_input + [0] * (self.max_len - len(tokenized_input))])
@@ -179,13 +179,13 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
                 running_loss = 0.0
 
 
-# train_model(enron_net, loss, adam, train_loader, epochs=3)
+train_model(enron_net, loss, adam, train_loader, epochs=3)
 
 PATH = './enron_bert.pth'
 # torch.save(enron_net.state_dict(), PATH)
 
 print('Loading trained model.')
-enron_net.load_state_dict(torch.load(PATH))
+# enron_net.load_state_dict(torch.load(PATH))
 
 
 def evaluate(model, loader):
@@ -204,5 +204,4 @@ def evaluate(model, loader):
 
 
 accuracy = evaluate(enron_net, test_loader)
-print('Accuracy of the network over the test set: %d %%' % (
-    100 * accuracy))
+print('Accuracy of the network over the test set: %d %%' % (100 * accuracy))
