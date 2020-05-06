@@ -186,8 +186,8 @@ torch.save(enron_net.state_dict(), PATH)
 
 
 def evaluate(model, test_loader):
-    correct = 0
-    total = 0
+    correct = 0.0
+    total = 0.0
     with torch.no_grad():
         for data in test_loader:
             input_ids, attn_mask, labels = data
