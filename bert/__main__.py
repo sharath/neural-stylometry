@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
 import torch
+from torch.utils.data import Dataset, DataLoader
+import torch.nn as nn
+import torch.optim as optim
 from transformers import *
-from sklearn.linear_model import LogisticRegression
 import nltk
-from tqdm import tqdm
 import os
 from common import get_dataset
 
@@ -20,6 +21,7 @@ def create_labels(path='dataset'):
         label_to_idx[sub] = curr_idx
         idx_to_label[curr_idx] = sub
         curr_idx += 1
+    print(curr_idx)
 
     return label_to_idx, idx_to_label
 
@@ -48,7 +50,7 @@ exclude_headers = [
 words = set(nltk.corpus.words.words())
 
 
-def load_data(dataset, limit=512):
+def load_data(dataset):
     print('Loading dataset into memory.')
     x, y = [], []
     for label, files in dataset.items():
@@ -70,7 +72,8 @@ def load_data(dataset, limit=512):
     return x, y
 
 
-device = 'cuda'
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
 
 
 print('Start loading data')
@@ -98,41 +101,103 @@ x_test, y_test = load_data(test)
 train = pd.DataFrame(list(zip(x_train, y_train)), columns=['Text', 'Label'])
 test = pd.DataFrame(list(zip(x_test, y_test)), columns=['Text', 'Label'])
 
-model_class, tokenizer_class, pretrained_weights = (BertModel, BertTokenizer, 'bert-base-uncased')
-tokenizer = tokenizer_class.from_pretrained(pretrained_weights)
-model = model_class.from_pretrained(pretrained_weights).to(device).eval()
+
+class EnronDataset(Dataset):
+
+    def __init__(self, df, config, max_len=512):
+        self.df = df
+
+        self.model_class, self.tokenizer_class, self.pretrained_weights = config
+        self.tokenizer = self.tokenizer_class.from_pretrained(self.pretrained_weights)
+
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, index):
+        text = self.df.loc[index, 'Text']
+        label = self.df.loc[index, 'Label']
+
+        tokenized_input = self.tokenizer.encode(text, add_special_tokens=True, max_length=self.max_len)
+        padded_input = np.array([tokenized_input + [0] * (self.max_len - len(tokenized_input))])
+        mask_input = np.where(padded_input != 0, 1, 0)
+
+        input_ids = torch.Tensor(padded_input).long()
+        attn_mask = torch.Tensor(mask_input).long()
+
+        return input_ids, attn_mask, label
 
 
-def get_features(df, model, tokenizer, batch_size=4, max_len=512):
-    tokenized_train = df['Text'].apply((lambda x: tokenizer.encode(x, add_special_tokens=True, max_length=max_len)))
-    padded = np.array([i + [0] * (max_len - len(i)) for i in tokenized_train.values])
+class BertEnron(nn.Module):
 
-    num_batches = (df.shape[0] - 1) // batch_size + 1
-    batch_features = []
+    def __init__(self, config):
+        super(BertEnron, self).__init__()
+        self.model_class, self.tokenizer_class, self.pretrained_weights = config
+        self.lm_layer = self.model_class.from_pretrained(self.pretrained_weights)
+        self.clf_layer = nn.Linear(768, 151)
 
-    for i in tqdm(range(num_batches)):
-        curr_padded = padded[i*batch_size:min(df.shape[0], i*batch_size + batch_size)]
-        curr_mask = np.where(curr_padded != 0, 1, 0)
-        input_ids = torch.from_numpy(curr_padded).to(device)
-        attn_mask = torch.from_numpy(curr_mask).to(device)
-
-        last_hidden_states = model(input_ids, attention_mask=attn_mask)
-        batch_features.append(last_hidden_states[0][:, 0, :].cpu().detach().numpy())
-
-    features = np.concatenate(batch_features, axis=0)
-    print('Feature shape: ', features.shape)
-    return features
+    def forward(self, input_ids, attn_masks):
+        last_hidden_states = self.lm_layer(input_ids, attention_mask=attn_masks)[0]
+        cls = last_hidden_states[:, 0, :]
+        logits = self.clf_layer(cls)
+        return logits
 
 
-print('Getting BERT features.')
-train_features = get_features(train, model, tokenizer)
-test_features = get_features(test, model, tokenizer)
+config = (BertModel, BertTokenizer, 'bert-base-uncased')
 
-train_labels = train['Label']
-test_labels = test['Label']
+train_data = EnronDataset(df=train, config=config)
+test_data = EnronDataset(df=test, config=config)
 
-print('Start training model.')
-clf = LogisticRegression(random_state=0, verbose=2, max_iter=1000, n_jobs=-1)
-clf.fit(train_features, y_train)
-print(clf.score(train_features, train_labels))
-print(clf.score(test_features, test_labels))
+train_loader = DataLoader(train_data, batch_size=64, num_workers=5)
+test_loader = DataLoader(test_data, batch_size=64, num_workers=5)
+
+enron_net = BertEnron(config=config).to(device)
+
+loss = nn.CrossEntropyLoss()
+adam = optim.Adam(enron_net.parameters(), lr=1e-4)
+
+
+def train_model(model, criterion, optimizer, train_loader, epochs=20):
+    for epoch in range(epochs):
+        running_loss = 0.0
+        for i, data in enumerate(train_loader):
+            input_ids, attn_masks, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
+
+            optimizer.zero_grad()
+
+            logits = model(input_ids, attn_masks)
+            loss = criterion(logits, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+            if i % 100 == 99:
+                print('[%d, %5d] loss: %.3f' %
+                      (epoch + 1, i + 1, running_loss / 100))
+                running_loss = 0.0
+
+
+train_model(enron_net, loss, adam, train_loader, epochs=2)
+
+PATH = './enron_bert.pth'
+torch.save(enron_net.state_dict(), PATH)
+
+
+def evaluate(model, test_loader):
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data in test_loader:
+            input_ids, attn_mask, labels = data
+            outputs = model(input_ids, attention_mask=attn_mask)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    return correct / total
+
+
+accuracy = evaluate(enron_net, test_loader)
+print('Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * accuracy))
