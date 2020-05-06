@@ -174,7 +174,7 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
             loss.backward()
             optimizer.step()
 
-            loss_history.append(loss.item())
+            batch_history.append(loss.item())
             epoch_loss += loss.items()
 
             running_loss += loss.item()
