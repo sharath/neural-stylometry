@@ -150,8 +150,8 @@ config = (BertModel, BertTokenizer, 'bert-base-uncased')
 train_data = EnronDataset(df=train, config=config)
 test_data = EnronDataset(df=test, config=config)
 
-train_loader = DataLoader(train_data, batch_size=8, num_workers=5)
-test_loader = DataLoader(test_data, batch_size=8, num_workers=5)
+train_loader = DataLoader(train_data, batch_size=8, num_workers=2)
+test_loader = DataLoader(test_data, batch_size=8, num_workers=2)
 
 enron_net = BertEnron(config=config).to(device)
 
@@ -184,6 +184,7 @@ def train_model(model, criterion, optimizer, train_loader, epochs=20):
 PATH = './enron_bert.pth'
 # torch.save(enron_net.state_dict(), PATH)
 
+print('Loading trained model.')
 enron_net.load_state_dict(torch.load(PATH))
 
 
