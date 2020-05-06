@@ -173,7 +173,7 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
             loss.backward()
             optimizer.step()
 
-            loss_history.append(loss.items())
+            loss_history.append(loss.item())
 
             running_loss += loss.item()
             if i % 100 == 99:
