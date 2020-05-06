@@ -160,6 +160,7 @@ adam = optim.Adam(enron_net.parameters(), lr=2e-5)
 
 
 def train_model(model, criterion, optimizer, loader, epochs=20):
+    loss_history = []
     for epoch in range(epochs):
         running_loss = 0.0
         for i, data in enumerate(loader):
@@ -172,19 +173,24 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
             loss.backward()
             optimizer.step()
 
+            loss_history.append(loss.items())
+
             running_loss += loss.item()
             if i % 100 == 99:
                 print('[%d, %5d] loss: %.4f' %
                       (epoch + 1, i + 1, running_loss / 100))
                 running_loss = 0.0
 
+    return np.array(loss_history)
 
-train_model(enron_net, loss, adam, train_loader, epochs=3)
+
+loss_history = train_model(enron_net, loss, adam, train_loader, epochs=3)
+np.save(file='bert_loss', arr=loss_history)
 
 PATH = './enron_bert.pth'
 # torch.save(enron_net.state_dict(), PATH)
 
-print('Loading trained model.')
+# print('Loading trained model.')
 # enron_net.load_state_dict(torch.load(PATH))
 
 
