@@ -195,8 +195,8 @@ def evaluate(model, test_loader):
         for data in test_loader:
             input_ids, attn_mask, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
             outputs = model(input_ids, attn_mask)
+            print(outputs)
             _, predicted = torch.max(outputs.data, 1)
-            print(predicted.data.cpu().numpy())
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
