@@ -117,7 +117,7 @@ def main():
     device = 'cuda'
     epochs = 3
     learning_rate = 2e-5
-    batch_size = 8
+    batch_size = 32
     
     print('Start loading data')
     
@@ -139,7 +139,7 @@ def main():
     train_dataloader = DataLoader(train_data, batch_size=batch_size, num_workers=2)
     test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=2)
     
-    model = BertEnron(config=config, nclasses=nclasses).to(device)
+    model = nn.DataParallel(BertEnron(config=config, nclasses=nclasses)).to(device)
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
