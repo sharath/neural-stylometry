@@ -194,7 +194,7 @@ def evaluate(model, test_loader):
     with torch.no_grad():
         for data in test_loader:
             input_ids, attn_mask, labels = data
-            outputs = model(input_ids, attention_mask=attn_mask)
+            outputs = model(input_ids, attn_mask)
             _, predicted = torch.max(outputs.data, 1)
             print(predicted.data.cpu().numpy())
             total += labels.size(0)
