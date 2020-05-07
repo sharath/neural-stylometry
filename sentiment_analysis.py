@@ -53,6 +53,14 @@ def load_data(dataset, text_list, time_list):
                 time_list.append(curr_time)
 
 
+def get_sentiment(out):
+	if out['pos'] > out['neg'] and out['pos'] > out['neu']:
+		return 'pos'
+	elif out['neg'] > out['pos'] and out['neg'] > out['neu']:
+		return 'neg'
+	else:
+		return 'neu'
+
 
 def main():
 	train, test = get_dataset()
@@ -60,13 +68,21 @@ def main():
 	load_data(train, text, time)
 	load_data(test, text, time)
 
+	sentiment_counter = {
+		'pos': 0,
+		'neg': 0,
+		'neu': 0
+	}
+
 	for i in range(20):
 		sid = SentimentIntensityAnalyzer()
 		match = re.search(r'\d{2}:\d{2}:\d{2}', time[i])
 		print(match) 
 		seq = text[i] 
 		ss = sid.polarity_scores(seq)
-		print(ss)
+		sent = get_sentiment(ss)
+		sentiment_counter[sent] += 1
+		print(sentiment_counter)
 
 
 if __name__ == '__main__':
