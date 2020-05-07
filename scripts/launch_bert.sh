@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 
-mkdir results
-sbatch --partition=1080ti-short --gres=gpu:1 --mem=8192 --output=results/bert_%j.log scripts/bert.sh
+mkdir output
+
+configs=(0 7 8)
+
+for config in ${configs[@]}
+do
+  sbatch --partition=m40-short --gres=gpu:4 --mem=16384 --output=output/%j.log scripts/bert.sh $config
+done
