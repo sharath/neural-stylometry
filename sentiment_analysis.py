@@ -73,9 +73,9 @@ def get_time_bin(timestamp):
 
 def main():
 	train, test = get_dataset()
-	text, time = [], [] 
-	load_data(train, text, time)
-	load_data(test, text, time)
+	texts, timestamps = [], [] 
+	load_data(train, texts, timestamps)
+	load_data(test, texts, timestamps)
 
 	sentiment_counter = {
 		'pos': 0,
@@ -91,13 +91,13 @@ def main():
 	for i in tqdm(range(5000)):
 		sid = SentimentIntensityAnalyzer()
 
-		seq = text[i] 
+		seq = texts[i] 
 		ss = sid.polarity_scores(seq)
 		sentiment = get_sentiment(ss)
 		sentiment_counter[sentiment] += 1
 
 		if sentiment == 'pos' or sentiment == 'neg':
-			curr_bin = get_time_bin(time[i])
+			curr_bin = get_time_bin(timestamps[i])
 			if sentiment == 'pos':
 				pos_bins[curr_bin] += 1
 			else:
@@ -110,10 +110,10 @@ def main():
 	print(np.sum(pos_vals), np.sum(neg_vals))
 
 	base = time(0, 0, 0)
-	times = np.array([(datetime.combine(date.today(), base) + timedelta(hours=i)).time() for i in range(24)])
+	hour_list = np.array([(datetime.combine(date.today(), base) + timedelta(hours=i)).time() for i in range(24)])
 
-	plt.plot(times, pos_vals, label='Positive')
-	plt.plot(times, neg_vals, label='Negative')
+	plt.plot(hour_list, pos_vals, label='Positive')
+	plt.plot(hour_list, neg_vals, label='Negative')
 	plt.xlabel('Time during the day')
 	plt.ylabel('Count')
 	plt.title('Distribution of positive and negative emails throughout the day')
