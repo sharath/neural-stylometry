@@ -82,7 +82,7 @@ def main():
 		ss = sid.polarity_scores(seq)
 		sent = get_sentiment(ss)
 		sentiment_counter[sent] += 1
-		print(sentiment_counter)
+	print(sentiment_counter)
 
 
 if __name__ == '__main__':
