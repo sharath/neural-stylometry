@@ -114,8 +114,8 @@ def main():
 		pos_bins[t] = pos_bins[t] / total_bins[t]
 		neg_bins[t] = neg_bins[t] / total_bins[t]
 
-	print(pos_vals)
-	print(neg_vals)
+	print(pos_bins)
+	print(neg_bins)
 	pos_vals = np.fromiter(pos_bins.values(), dtype=int)
 	neg_vals = np.fromiter(neg_bins.values(), dtype=int)
 
