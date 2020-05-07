@@ -1,6 +1,8 @@
 import numpy as np 
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import re 
+from datetime import datetime
 import os, sys
 from common import get_dataset
 
@@ -57,8 +59,13 @@ def main():
 	load_data(train, text, time)
 	load_data(test, text, time)
 
-	for i in time[:10]:
-		print(i)
+	for i in range(3):
+		sid = SentimentIntensityAnalyzer()
+		match = re.search(r'\d{2}:\d{2}-\d{2}', time[i])
+		print(match) 
+		seq = text[i] 
+		ss = sid.polarity_score(seq)
+		print(ss)
 
 
 if __name__ == '__main__':
