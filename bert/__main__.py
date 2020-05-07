@@ -43,7 +43,7 @@ def load_preprocessed_data(dataset_dir, split, label_to_idx=None, idx_to_label=N
     if label_to_idx is None:
         label_to_idx, idx_to_label = {}, {}    
     idx = max(list(idx_to_label.keys())) if len(idx_to_label) != 0 else 0
-    
+
     for filename in filenames:
         file_path = os.path.join(dataset_dir, filename)
         label, split = filename.split('_')
@@ -115,9 +115,9 @@ def mask_dataset_dir(mask_type):
     if mask_type == 'none':
         dataset_dir = os.path.join('preprocessed_datasets', 'unmasked')
         mask_tokens = []
-    elif mask_type == 'ner':
-        dataset_dir = os.path.join('preprocessed_datasets', 'ner')
-        mask_tokens = ['[NER]']
+    else mask_type == 'ner':
+        dataset_dir = os.path.join('preprocessed_datasets', mask_type)
+        mask_tokens = [f'[{mask_type.upper()}]']
     
     return dataset_dir, mask_tokens
     

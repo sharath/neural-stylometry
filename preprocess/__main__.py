@@ -33,6 +33,7 @@ exclude_headers = set([
 
 
 ner_tagger = None
+pos_tagger = None
 
 def process_none(file):
     with open(file, 'r') as fp:
@@ -49,6 +50,27 @@ def process_none(file):
             stripped.append(line)
         
         tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped))][:1024]
+    return tokens
+
+def process_posuh(file):
+    global pos_tagger
+    with open(file, 'r') as fp:
+        lines = fp.readlines()
+        stripped = []
+        for line in lines:
+            remove = False
+            for t in exclude_headers:
+                if t in line:
+                    remove = True
+                    break
+            if remove:
+                continue
+            stripped.append(line)
+        
+        tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped))][:1024]
+        tagged = pos_tagger.tag(tokens)
+        mapping = lambda x, y : x.lower() if y != 'UH' else '[POSUH]'
+        tokens = [mapping(k, v) for (k, v) in tagged]
     return tokens
 
 def process_ner(file):
@@ -72,17 +94,33 @@ def process_ner(file):
         tokens = [mapping(k, v) for (k, v) in tagged]
     return tokens
 
+def process_posppn(file):
+    global pos_tagger
+    masked = set(['NNP', 'NNPS'])
+    with open(file, 'r') as fp:
+        lines = fp.readlines()
+        stripped = []
+        for line in lines:
+            remove = False
+            for t in exclude_headers:
+                if t in line:
+                    remove = True
+                    break
+            if remove:
+                continue
+            stripped.append(line)
+        
+        tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped))][:1024]
+        tagged = pos_tagger.tag(tokens)
+        mapping = lambda x, y : x.lower() if y not in masked else '[POSPPN]'
+        tokens = [mapping(k, v) for (k, v) in tagged]
+    return tokens
 
-def main(label, dataset_dir, mask_type):
+
+def main(label, dataset_dir, process):
     train, test = get_dataset()
     train_files, test_files = train[label], test[label]
-    
-    
-    if mask_type == 'none':
-        process = process_none
-    elif mask_type == 'ner':
-        process = process_ner
-        
+            
     x_train = process_map(process, train_files[::-1], max_workers=10)
     x_test = process_map(process, test_files[::-1], max_workers=10)
     
@@ -96,21 +134,24 @@ def main(label, dataset_dir, mask_type):
 if __name__ == '__main__':
     train, test = get_dataset()
     labels = set(train.keys())
-    ner_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='ner')
-    
-    # filtered_labels = []
-    # for k in train.keys():
-    #     file_train, file_test = os.path.join('dataset_ner', f'{k}_train.p'), os.path.join('dataset_ner', f'{k}_test.p')
-    #     
-    #     if not os.path.exists(file_train) or not os.path.exists(file_test):
-    #         filtered_labels.append(k)
-    
     
     unmasked_dir = os.path.join('preprocessed_datasets', 'unmasked')
-    ner_masked_dir = os.path.join('preprocessed_datasets', 'ner')
     os.makedirs(unmasked_dir, exist_ok=True)
+    
+    ner_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='ner')
+    ner_masked_dir = os.path.join('preprocessed_datasets', 'ner')
     os.makedirs(ner_masked_dir, exist_ok=True)
     
+    pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
+    
+    posuh_masked_dir = os.path.join('preprocessed_datasets', 'posuh')
+    os.makedirs(posuh_masked_dir, exist_ok=True)
+    
+    posppn_masked_dir = os.path.join('preprocessed_datasets', 'posppn')
+    os.makedirs(posppn_masked_dir, exist_ok=True)
+    
     for label in labels:
-        main(label, unmasked_dir, mask_type='none')
-        main(label, ner_masked_dir, mask_type='ner')
+        main(label, unmasked_dir, process_none)
+        main(label, ner_masked_dir, process_ner)
+        main(label, posuh_masked_dir, process_posuh)
+        main(label, posppn_masked_dir, process_posppn)

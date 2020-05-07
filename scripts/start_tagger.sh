@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cd ner
+cd tagger
 
 java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer \
 -preload tokenize,ssplit,pos,lemma,ner,parse,depparse \
