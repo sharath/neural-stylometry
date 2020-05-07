@@ -1,27 +1,18 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+import os, sys
+import nltk
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
+from torch.utils.data import Dataset, DataLoader
 from transformers import *
-import nltk
-import os
 from common import get_dataset
-
-
-# Run this once!
-nltk.download('words')
-
-
-def create_labels(dataset):
-    label_to_idx, idx_to_label = {}, {}
-    for idx, label in enumerate(list(dataset.keys())):
-        label_to_idx[label] = idx
-        idx_to_label[idx] = label
-    return label_to_idx, idx_to_label
-
 
 exclude_headers = [
     "Message-ID:",
@@ -42,11 +33,7 @@ exclude_headers = [
 ]
 
 
-words = set(nltk.corpus.words.words())
-
-
-def load_data(dataset, label_to_idx_dict):
-    print('Loading dataset into memory.')
+def load_data(dataset, label_to_idx):
     x, y = [], []
     for label, files in dataset.items():
         for file in files:
@@ -61,44 +48,10 @@ def load_data(dataset, label_to_idx_dict):
                     if remove:
                         continue
                     stripped.append(line)
-                tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower()) if i in words and '@enron.com' not in i]
+                tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower())]
                 x.append(' '.join(tokens))
-                y.append(label_to_idx_dict[label])
+                y.append(label_to_idx[label])
     return x, y
-
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(device)
-
-
-print('Start loading data')
-train, test = get_dataset()
-label_to_idx, idx_to_label = create_labels(train)
-num_labels = len(train.keys())
-print('Number of labels: {}'.format(num_labels))
-
-debug = False
-if debug:
-    train_subset = {}
-    for key, val in train.items():
-        if len(train_subset) == 4:
-            break
-        train_subset[key] = val
-    test_subset = {}
-    for key, val in test.items():
-        if len(test_subset) == 4:
-            break
-        test_subset[key] = val
-    
-    train, test = train_subset, test_subset
-
-
-x_train, y_train = load_data(train, label_to_idx)
-x_test, y_test = load_data(test, label_to_idx)
-
-train = pd.DataFrame(list(zip(x_train, y_train)), columns=['Text', 'Label'])
-test = pd.DataFrame(list(zip(x_test, y_test)), columns=['Text', 'Label'])
-
 
 class EnronDataset(Dataset):
 
@@ -128,92 +81,128 @@ class EnronDataset(Dataset):
 
 
 class BertEnron(nn.Module):
-
-    def __init__(self, num_classes, config):
+    def __init__(self, config, nclasses, mlp=False):
         super(BertEnron, self).__init__()
         self.model_class, self.tokenizer_class, self.pretrained_weights = config
         self.lm_layer = self.model_class.from_pretrained(self.pretrained_weights)
-        self.fc1 = nn.Linear(768, 100)
-        self.bn = nn.BatchNorm1d(100)
-        self.fc2 = nn.Linear(100, num_classes)
+        
+        self.main = nn.Sequential(
+            nn.Linear(768, nclasses)
+        ) if not mlp else nn.Sequential(
+            nn.Linear(768, 100),
+            nn.BatchNorm1d(100),
+            nn.ReLU(),
+            nn.Linear(100, nclasses)
+        )
 
     def forward(self, input_ids, attn_masks):
         last_hidden_states = self.lm_layer(input_ids, attention_mask=attn_masks)[0]
-        cls_token = last_hidden_states[:, 0, :]
+        cls = last_hidden_states[:, 0, :]
+        return self.main(cls)
 
-        x = self.bn(F.relu(self.fc1(cls_token)))
-        logits = self.fc2(x)
-        return logits
-
-
-config = (BertModel, BertTokenizer, 'bert-base-uncased')
-
-train_data = EnronDataset(df=train, config=config)
-test_data = EnronDataset(df=test, config=config)
-
-train_loader = DataLoader(train_data, batch_size=8, num_workers=2, shuffle=True)
-test_loader = DataLoader(test_data, batch_size=8, num_workers=2, shuffle=True)
-
-enron_net = BertEnron(num_classes=num_labels, config=config).to(device)
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(enron_net.parameters(), lr=2e-5)
+def create_labels(dataset):
+    label_to_idx, idx_to_label = {}, {}
+    for idx, label in enumerate(list(dataset.keys())):
+        label_to_idx[label] = idx
+        idx_to_label[idx] = label
+    return label_to_idx, idx_to_label
 
 
-def train_model(model, criterion, optimizer, loader, epochs=3, print_every=1000):
-    batch_history, epoch_history = [], []
-    for epoch in range(epochs):
-        running_loss = 0.0
-        epoch_loss = 0.0
-        for i, data in enumerate(loader):
-            input_ids, attn_masks, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
-
-            optimizer.zero_grad()
-
-            logits = model(input_ids, attn_masks)
-            loss = criterion(logits, labels)
+def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False, results_dir='results', device='cuda'):
+    experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2], str(mlp)])
+    experiment_dir = os.path.join(results_dir, experiment_name)
+    checkpoints_dir = os.path.join(results_dir, experiment_name, 'checkpoints')
+    stats_filename = os.path.join(results_dir, experiment_name, 'stats.pth')
+    os.makedirs(experiment_dir, exist_ok=True)
+    os.makedirs(checkpoints_dir, exist_ok=True)
+    output_file = open(os.path.join(results_dir, experiment_name, 'output.log'), 'w')
+    
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    
+    print('Loading dataset into memory.', file=output_file, flush=True)
+    train, test = get_dataset()
+    label_to_idx, idx_to_label = create_labels(train)
+    nclasses = len(train.keys())
+    
+    x_train, y_train = load_data(train, label_to_idx)
+    x_test, y_test = load_data(test, label_to_idx)
+    
+    train = pd.DataFrame(list(zip(x_train, y_train)), columns=['Text', 'Label'])
+    test = pd.DataFrame(list(zip(x_test, y_test)), columns=['Text', 'Label'])
+    
+    train_data = EnronDataset(df=train, config=config)
+    test_data = EnronDataset(df=test, config=config)
+    
+    train_dataloader = DataLoader(train_data, batch_size=batch_size, num_workers=2, shuffle=True)
+    test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=2)
+    
+    model = nn.DataParallel(BertEnron(config=config, nclasses=nclasses)).to(device)
+    
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    
+    
+    stats = {'epoch':[], 'loss':[], 'train_accuracy':[], 'test_accuracy':[]}
+    for epoch in range(1, epochs+1):
+        epoch_loss = []
+        
+        model.train()
+        correct, total = 0, 0
+        for idx, (input_ids, attn_masks, target) in enumerate(train_dataloader):
+            input_ids = input_ids.squeeze(dim=1).to(device)
+            attn_masks = attn_masks.squeeze(dim=1).to(device)
+            target = target.to(device)
+            
+            model.zero_grad()
+            pred = model(input_ids, attn_masks)
+            loss = criterion(pred, target)
             loss.backward()
             optimizer.step()
-
-            batch_history.append(loss.item())
-            epoch_loss += loss.item()
-
-            running_loss += loss.item()
-            if i % print_every == print_every - 1:
-                print('[%d, %5d] loss: %.4f' %
-                      (epoch + 1, i + 1, running_loss / print_every))
-                running_loss = 0.0
-
-        epoch_history.append(epoch_loss)
-
-    return np.array(batch_history), np.array(epoch_history)
-
-
-batch_losses, epoch_losses = train_model(enron_net, criterion, optimizer, train_loader, epochs=3)
-np.save(file='bert_batch_loss', arr=batch_losses)
-np.save(file='bert_epoch_loss', arr=epoch_losses)
-
-PATH = './bert_2_layer.pth'
-torch.save(enron_net.state_dict(), PATH)
-
-# print('Loading trained model.')
-# enron_net.load_state_dict(torch.load(PATH))
-
-
-def evaluate(model, loader):
-    correct = 0.0
-    total = 0.0
-    with torch.no_grad():
-        for i, data in enumerate(loader):
-            input_ids, attn_masks, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
-            outputs = model(input_ids, attn_masks)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    print('Correctly predicted: {} out of {}.'.format(correct, total))
-    return correct / total
-
-
-accuracy = evaluate(enron_net, test_loader)
-print('Accuracy of the network over the test set: %d %%' % (100 * accuracy))
+            epoch_loss.append(loss.item())
+            
+            correct += torch.sum(pred.argmax(1) == target).item()
+            total += len(target)
+            
+            print(f"Epoch {epoch}\tBatch {idx+1} / {len(train_dataloader)}\tLoss: {np.mean(epoch_loss):.5f}\tTrain: {correct / total:.5f}", file=output_file, flush=True)
+            
+        train_accuracy = correct / total
+        
+        model.eval()
+        correct, total = 0, 0
+        for idx, (input_ids, attn_masks, target) in enumerate(test_dataloader):
+            input_ids = input_ids.squeeze(dim=1).to(device)
+            attn_masks = attn_masks.squeeze(dim=1).to(device)
+            target = target.to(device)
+            pred = model(input_ids, attn_masks)
+            correct += torch.sum(pred.argmax(1) == target).item()
+            total += len(target)
+            
+        test_accuracy = correct / total
+        
+        stats['epoch'].append(epoch)
+        stats['loss'].append(np.mean(epoch_loss))
+        stats['train_accuracy'].append(train_accuracy)
+        stats['test_accuracy'].append(test_accuracy)
+        print(f"Epoch {stats['epoch'][-1]} Summary\tLoss: {stats['loss'][-1]:.5f}\tTrain: {stats['train_accuracy'][-1]:.5f}\tTest: {stats['test_accuracy'][-1]:.5f}", file=output_file, flush=True)
+        
+        torch.save(model.state_dict(), os.path.join(checkpoints_dir, f'model-{epoch}.pth'))
+        torch.save(stats, stats_filename)
+        
+    output_file.close()
+    
+if __name__ == '__main__':
+    config_id = 0 if len(sys.argv) != 2 else int(sys.argv[1])
+    configs = [(BertModel,      BertTokenizer,       'bert-base-uncased'),
+              (OpenAIGPTModel,  OpenAIGPTTokenizer,  'openai-gpt'),
+              (GPT2Model,       GPT2Tokenizer,       'gpt2'),
+              (CTRLModel,       CTRLTokenizer,       'ctrl'),
+              (TransfoXLModel,  TransfoXLTokenizer,  'transfo-xl-wt103'),
+              (XLNetModel,      XLNetTokenizer,      'xlnet-base-cased'),
+              (XLMModel,        XLMTokenizer,        'xlm-mlm-enfr-1024'),
+              (DistilBertModel, DistilBertTokenizer, 'distilbert-base-cased'),
+              (RobertaModel,    RobertaTokenizer,    'roberta-base'),
+              (XLMRobertaModel, XLMRobertaTokenizer, 'xlm-roberta-base')]
+    
+    main(configs[config_id])
