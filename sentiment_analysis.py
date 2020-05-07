@@ -1,5 +1,7 @@
 import numpy as np 
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.dates import date2num
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from tqdm import tqdm
@@ -110,10 +112,15 @@ def main():
 	print(np.sum(pos_vals), np.sum(neg_vals))
 
 	base = time(0, 0, 0)
-	hour_list = np.array([(datetime.combine(date.today(), base) + timedelta(minutes=i*30)).time() for i in range(48)])
+	hour_list = np.array([datetime.combine(date.today(), base) + timedelta(minutes=i*30) for i in range(48)])
+	
 
 	plt.plot(hour_list, pos_vals, label='Positive')
 	plt.plot(hour_list, neg_vals, label='Negative')
+
+	xformatter = mdates.DateFormatter('%H:%M')
+	plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+	
 	plt.xlabel('Time during the day')
 	plt.ylabel('Count')
 	plt.title('Distribution of positive and negative emails throughout the day')
