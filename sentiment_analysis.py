@@ -26,8 +26,7 @@ exclude_headers = [
 ]
 
 
-def load_data(dataset):
-    text, time = [], []
+def load_data(dataset, text_list, time_list):
     date_tag = "Date:"
     for _, files in dataset.items():
         for file in files:
@@ -46,13 +45,15 @@ def load_data(dataset):
                         continue
                     stripped.append(line)
                 tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower())]
-                print(curr_time, ' '.join(tokens))
-                text.append(' '.join(tokens))
-                time.append(curr_time)
-    return text, time
+
+                text_list.append(' '.join(tokens))
+                time_list.append(curr_time)
+
 
 
 train, test = get_dataset()
-text, time = load_data(train)
+text, time = [], [] 
+load_data(train, text, time)
+load_data(test, text, time)
 print(len(text))
 print(len(time))
