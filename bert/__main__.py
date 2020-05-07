@@ -134,13 +134,14 @@ class BertEnron(nn.Module):
         self.model_class, self.tokenizer_class, self.pretrained_weights = config
         self.lm_layer = self.model_class.from_pretrained(self.pretrained_weights)
         self.fc1 = nn.Linear(768, 100)
+        self.bn = nn.BatchNorm1d(100)
         self.fc2 = nn.Linear(100, num_classes)
 
     def forward(self, input_ids, attn_masks):
         last_hidden_states = self.lm_layer(input_ids, attention_mask=attn_masks)[0]
         cls_token = last_hidden_states[:, 0, :]
 
-        x = F.relu(self.fc1(cls_token))
+        x = self.bn(F.relu(self.fc1(cls_token)))
         logits = self.fc2(x)
         return logits
 
