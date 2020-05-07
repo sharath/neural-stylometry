@@ -62,7 +62,7 @@ def main():
 
 	for i in range(3):
 		sid = SentimentIntensityAnalyzer()
-		match = re.search(r'\d{2}:\d{2}-\d{2}', time[i])
+		match = re.search(r'\d{2}:\d{2}:\d{2}', time[i])
 		print(match) 
 		seq = text[i] 
 		ss = sid.polarity_scores(seq)
