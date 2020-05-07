@@ -128,7 +128,7 @@ def main():
 	plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
 
 	plt.xlabel('Time during the day')
-	plt.ylabel('Count')
+	plt.ylabel('Fraction')
 	plt.title('Distribution of positive and negative emails throughout the day')
 	plt.legend(loc='best')
 	plt.savefig('bin_plot.png')
