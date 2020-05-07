@@ -110,7 +110,7 @@ def create_labels(dataset):
 
 
 def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False, frozen=False, results_dir='results', device='cuda'):
-    experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2],
+    experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2].split('/')[-1],
                                 str(epochs), str(learning_rate), str(batch_size), str(mlp), str(frozen)])
     experiment_dir = os.path.join(results_dir, experiment_name)
     checkpoints_dir = os.path.join(results_dir, experiment_name, 'checkpoints')
@@ -189,9 +189,11 @@ def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False,
         stats['test_accuracy'].append(test_accuracy)
         print(f"Epoch {stats['epoch'][-1]} Summary\tLoss: {stats['loss'][-1]:.5f}\tTrain: {stats['train_accuracy'][-1]:.5f}\tTest: {stats['test_accuracy'][-1]:.5f}", file=output_file, flush=True)
         
-        torch.save(model.state_dict(), os.path.join(checkpoints_dir, f'model-{epoch}.pth'))
         torch.save(stats, stats_filename)
+        if not frozen:
+            torch.save(model.state_dict(), os.path.join(checkpoints_dir, f'model-{epoch}.pth'))
         
+    torch.save(model.state_dict(), os.path.join(checkpoints_dir, 'model-trained.pth'))
     output_file.close()
     
 if __name__ == '__main__':
@@ -206,16 +208,10 @@ if __name__ == '__main__':
     parser.add_argument('--mlp', default=False, action='store_true', help='use mlp classifier?')
     args = parser.parse_args()
     
-    config = [(BertModel,      BertTokenizer,       'bert-base-uncased'),
-              (OpenAIGPTModel,  OpenAIGPTTokenizer,  'openai-gpt'),
-              (GPT2Model,       GPT2Tokenizer,       'gpt2'),
-              (CTRLModel,       CTRLTokenizer,       'ctrl'),
-              (TransfoXLModel,  TransfoXLTokenizer,  'transfo-xl-wt103'),
-              (XLNetModel,      XLNetTokenizer,      'xlnet-base-cased'),
-              (XLMModel,        XLMTokenizer,        'xlm-mlm-enfr-1024'),
+
+    config = [(BertModel,       BertTokenizer,       'bert-base-uncased'),
               (DistilBertModel, DistilBertTokenizer, 'distilbert-base-cased'),
               (RobertaModel,    RobertaTokenizer,    'roberta-base'),
-              (XLMRobertaModel, XLMRobertaTokenizer, 'xlm-roberta-base')][args.config_id]
-    
+              (AutoModel,       AutoTokenizer,       'SpanBERT/spanbert-base-cased')][args.config_id]
     
     main(config, seed=args.seed, epochs=args.epochs, learning_rate=args.learning_rate, batch_size=args.batch_size, mlp=args.mlp, frozen=args.frozen, results_dir=args.results_dir)

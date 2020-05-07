@@ -2,7 +2,7 @@
 
 mkdir output
 
-configs=(0 7 8)
+configs=(0 1 2 3)
 
 for config in ${configs[@]}
 do
