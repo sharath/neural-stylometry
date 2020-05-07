@@ -202,8 +202,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32, help='batch size')
     parser.add_argument('--learning_rate', type=float, default=2e-5, help='learning rate')
     parser.add_argument('--results_dir', type=str, default='results', help='results directory')
-    parser.add_argument('--frozen', type=bool, default=False, action='store_true', help='use frozen model?')
-    parser.add_argument('--mlp', type=bool, default=False, action='store_true', help='use mlp classifier?')
+    parser.add_argument('--frozen', default=False, action='store_true', help='use frozen model?')
+    parser.add_argument('--mlp', default=False, action='store_true', help='use mlp classifier?')
     args = parser.parse_args()
     
     config = [(BertModel,      BertTokenizer,       'bert-base-uncased'),
