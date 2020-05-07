@@ -88,7 +88,7 @@ def main():
 		pos_bins[t] = 0
 		neg_bins[t] = 0
 
-	for i in tqdm(range(len(text))):
+	for i in tqdm(range(5000)):
 		sid = SentimentIntensityAnalyzer()
 
 		seq = text[i] 
@@ -109,10 +109,11 @@ def main():
 	print(pos_vals.shape, neg_vals.shape)
 	print(np.sum(pos_vals), np.sum(neg_vals))
 
-	time = np.array([(datetime.combine(date.today(), base) + timedelta(hours=i)).time() for i in range(24)])
+	base = time(0, 0, 0)
+	times = np.array([(datetime.combine(date.today(), base) + timedelta(hours=i)).time() for i in range(24)])
 
-	plt.plot(time, pos_vals, label='Positive')
-	plt.plot(time, neg_vals, label='Negative')
+	plt.plot(times, pos_vals, label='Positive')
+	plt.plot(times, neg_vals, label='Negative')
 	plt.xlabel('Time during the day')
 	plt.ylabel('Count')
 	plt.title('Distribution of positive and negative emails throughout the day')
