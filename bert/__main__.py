@@ -91,7 +91,6 @@ class BertEnron(nn.Module):
             nn.Linear(768, nclasses)
         ) if not mlp else nn.Sequential(
             nn.Linear(768, 100),
-            nn.BatchNorm1d(100),
             nn.ReLU(),
             nn.Linear(100, nclasses)
         )
