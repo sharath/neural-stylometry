@@ -12,6 +12,7 @@ import torch.optim as optim
 
 from torch.utils.data import Dataset, DataLoader
 from transformers import *
+from argparse import ArgumentParser
 from common import get_dataset
 
 exclude_headers = [
@@ -81,11 +82,11 @@ class EnronDataset(Dataset):
 
 
 class BertEnron(nn.Module):
-    def __init__(self, config, nclasses, mlp=False):
+    def __init__(self, config, nclasses, mlp, frozen):
         super(BertEnron, self).__init__()
         self.model_class, self.tokenizer_class, self.pretrained_weights = config
         self.lm_layer = self.model_class.from_pretrained(self.pretrained_weights)
-        
+        self.frozen = frozen
         self.main = nn.Sequential(
             nn.Linear(768, nclasses)
         ) if not mlp else nn.Sequential(
@@ -97,8 +98,8 @@ class BertEnron(nn.Module):
 
     def forward(self, input_ids, attn_masks):
         last_hidden_states = self.lm_layer(input_ids, attention_mask=attn_masks)[0]
-        cls = last_hidden_states[:, 0, :]
-        return self.main(cls)
+        cls_token = last_hidden_states[:, 0, :].detach() if self.frozen else last_hidden_states[:, 0, :]
+        return self.main(cls_token)
 
 def create_labels(dataset):
     label_to_idx, idx_to_label = {}, {}
@@ -108,7 +109,7 @@ def create_labels(dataset):
     return label_to_idx, idx_to_label
 
 
-def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False, results_dir='results', device='cuda'):
+def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False, frozen=False, results_dir='results', device='cuda'):
     experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2], str(mlp)])
     experiment_dir = os.path.join(results_dir, experiment_name)
     checkpoints_dir = os.path.join(results_dir, experiment_name, 'checkpoints')
@@ -138,7 +139,7 @@ def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False,
     train_dataloader = DataLoader(train_data, batch_size=batch_size, num_workers=2, shuffle=True)
     test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=2)
     
-    model = nn.DataParallel(BertEnron(config=config, nclasses=nclasses)).to(device)
+    model = nn.DataParallel(BertEnron(config, nclasses, mlp, frozen)).to(device)
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -193,8 +194,18 @@ def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False,
     output_file.close()
     
 if __name__ == '__main__':
-    config_id = 0 if len(sys.argv) != 2 else int(sys.argv[1])
-    configs = [(BertModel,      BertTokenizer,       'bert-base-uncased'),
+    parser = ArgumentParser()
+    parser.add_argument('--seed', type=int, default=0, help='random seed')
+    parser.add_argument('--config_id', type=int, default=0, help='pretrained model config id')
+    parser.add_argument('--epochs', type=int, default=3, help='number of epochs')
+    parser.add_argument('--batch_size', type=int, default=32, help='batch size')
+    parser.add_argument('--learning_rate', type=float, default=2e-5, help='learning rate')
+    parser.add_argument('--results_dir', type=str, default='results', help='results directory')
+    parser.add_argument('--frozen', type=bool, default=False, action='store_true', help='use frozen model?')
+    parser.add_argument('--mlp', type=bool, default=False, action='store_true', help='use mlp classifier?')
+    args = parser.parse_args()
+    
+    config = [(BertModel,      BertTokenizer,       'bert-base-uncased'),
               (OpenAIGPTModel,  OpenAIGPTTokenizer,  'openai-gpt'),
               (GPT2Model,       GPT2Tokenizer,       'gpt2'),
               (CTRLModel,       CTRLTokenizer,       'ctrl'),
@@ -203,6 +214,7 @@ if __name__ == '__main__':
               (XLMModel,        XLMTokenizer,        'xlm-mlm-enfr-1024'),
               (DistilBertModel, DistilBertTokenizer, 'distilbert-base-cased'),
               (RobertaModel,    RobertaTokenizer,    'roberta-base'),
-              (XLMRobertaModel, XLMRobertaTokenizer, 'xlm-roberta-base')]
+              (XLMRobertaModel, XLMRobertaTokenizer, 'xlm-roberta-base')][args.config_id]
     
-    main(configs[config_id])
+    
+    main(config, seed=args.seed, epochs=args.epochs, learning_rate=args.learning_rate, batch_size=args.batch_size, mlp=args.mlp, frozen=args.frozen, results_dir=args.results_dir)
