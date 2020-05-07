@@ -43,6 +43,7 @@ def load_data(dataset):
                         continue
                     if date_tag in line:
                         time.append(line)
+                        continue
                     stripped.append(line)
                 tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower())]
                 text.append(' '.join(tokens))
