@@ -110,7 +110,7 @@ def create_labels(dataset):
 
 
 def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False, frozen=False, results_dir='results', device='cuda'):
-    experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2], str(mlp)])
+    experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2], str(mlp), str(frozen)])
     experiment_dir = os.path.join(results_dir, experiment_name)
     checkpoints_dir = os.path.join(results_dir, experiment_name, 'checkpoints')
     stats_filename = os.path.join(results_dir, experiment_name, 'stats.pth')
