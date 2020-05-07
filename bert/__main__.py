@@ -15,25 +15,19 @@ from common import get_dataset
 nltk.download('words')
 
 
-def create_labels(path='dataset'):
+def create_labels(dataset):
     label_to_idx, idx_to_label = {}, {}
-    curr_idx = 0
-    for sub in os.listdir(path):
-        label_to_idx[sub] = curr_idx
-        idx_to_label[curr_idx] = sub
-        curr_idx += 1
-    print(curr_idx)
-
+    for idx, label in enumerate(list(dataset.keys())):
+        label_to_idx[label] = idx
+        idx_to_label[idx] = label
     return label_to_idx, idx_to_label
 
-
-label_to_idx, idx_to_label = create_labels('dataset')
 
 exclude_headers = [
     "Message-ID:",
     "Date:",
-    "From: phillip.allen@enron.com",
-    "To: outlook.team@enron.com",
+    "From:",
+    "To:",
     "Subject:",
     "Mime-Version:",
     "Content-Type:",
@@ -79,6 +73,9 @@ print(device)
 
 print('Start loading data')
 train, test = get_dataset()
+label_to_idx, idx_to_label = create_labels(train)
+num_labels = len(train.keys())
+print('Number of labels: {}'.format(num_labels))
 
 debug = False
 if debug:
@@ -132,16 +129,19 @@ class EnronDataset(Dataset):
 
 class BertEnron(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, num_classes, config):
         super(BertEnron, self).__init__()
         self.model_class, self.tokenizer_class, self.pretrained_weights = config
         self.lm_layer = self.model_class.from_pretrained(self.pretrained_weights)
-        self.clf_layer = nn.Linear(768, 151)
+        self.fc1 = nn.Linear(768, 100)
+        self.fc2 = nn.Linear(100, num_classes)
 
     def forward(self, input_ids, attn_masks):
         last_hidden_states = self.lm_layer(input_ids, attention_mask=attn_masks)[0]
-        cls = last_hidden_states[:, 0, :]
-        logits = self.clf_layer(cls)
+        cls_token = last_hidden_states[:, 0, :]
+
+        x = F.relu(self.fc1(cls_token))
+        logits = self.fc2(x)
         return logits
 
 
@@ -153,13 +153,13 @@ test_data = EnronDataset(df=test, config=config)
 train_loader = DataLoader(train_data, batch_size=8, num_workers=2)
 test_loader = DataLoader(test_data, batch_size=8, num_workers=2)
 
-enron_net = BertEnron(config=config).to(device)
+enron_net = BertEnron(num_classes=num_labels, config=config).to(device)
 
-loss = nn.CrossEntropyLoss()
-adam = optim.Adam(enron_net.parameters(), lr=2e-5)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(enron_net.parameters(), lr=2e-5)
 
 
-def train_model(model, criterion, optimizer, loader, epochs=20):
+def train_model(model, criterion, optimizer, loader, epochs=3, print_every=1000):
     batch_history, epoch_history = [], []
     for epoch in range(epochs):
         running_loss = 0.0
@@ -178,9 +178,9 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
             epoch_loss += loss.item()
 
             running_loss += loss.item()
-            if i % 2000 == 1999:
+            if i % print_every == print_every - 1:
                 print('[%d, %5d] loss: %.4f' %
-                      (epoch + 1, i + 1, running_loss / 2000))
+                      (epoch + 1, i + 1, running_loss / print_every))
                 running_loss = 0.0
 
         epoch_history.append(epoch_loss)
@@ -188,11 +188,11 @@ def train_model(model, criterion, optimizer, loader, epochs=20):
     return np.array(batch_history), np.array(epoch_history)
 
 
-batch_losses, epoch_losses = train_model(enron_net, loss, adam, train_loader, epochs=3)
+batch_losses, epoch_losses = train_model(enron_net, criterion, optimizer, train_loader, epochs=3)
 np.save(file='bert_batch_loss', arr=batch_losses)
 np.save(file='bert_epoch_loss', arr=epoch_losses)
 
-PATH = './enron_bert_new.pth'
+PATH = './bert_2_layer.pth'
 torch.save(enron_net.state_dict(), PATH)
 
 # print('Loading trained model.')
@@ -210,6 +210,7 @@ def evaluate(model, loader):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
+    print('Correctly predicted: {} out of {}.'.format(correct, total))
     return correct / total
 
 
