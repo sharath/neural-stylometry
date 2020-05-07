@@ -8,6 +8,7 @@ from common import get_dataset
 
 
 nltk.download('punkt')
+nltk.download('vader_lexicon')
 
 
 exclude_headers = [
