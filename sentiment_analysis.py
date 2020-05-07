@@ -74,10 +74,10 @@ def main():
 		'neu': 0
 	}
 
-	for i in range(20):
+	for i in range(len(text)):
 		sid = SentimentIntensityAnalyzer()
 		match = re.search(r'\d{2}:\d{2}:\d{2}', time[i])
-		print(match) 
+		# print(match) 
 		seq = text[i] 
 		ss = sid.polarity_scores(seq)
 		sent = get_sentiment(ss)
