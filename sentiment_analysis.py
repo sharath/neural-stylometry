@@ -60,7 +60,7 @@ def main():
 	load_data(train, text, time)
 	load_data(test, text, time)
 
-	for i in range(3):
+	for i in range(20):
 		sid = SentimentIntensityAnalyzer()
 		match = re.search(r'\d{2}:\d{2}:\d{2}', time[i])
 		print(match) 
