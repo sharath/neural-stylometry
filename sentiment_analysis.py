@@ -108,8 +108,9 @@ def main():
 			total_bins[curr_bin] += 1
 
 	for t in range(48):
-		pos_bins[t] = pos_bins[t] / total_bins[t]
-		neg_bins[t] = neg_bins[t] / total_bins[t]
+		if total_bins[t] != 0:
+			pos_bins[t] = pos_bins[t] / total_bins[t]
+			neg_bins[t] = neg_bins[t] / total_bins[t]
 
 	pos_vals = np.fromiter(pos_bins.values(), dtype=int)
 	neg_vals = np.fromiter(neg_bins.values(), dtype=int)
