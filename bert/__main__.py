@@ -113,11 +113,13 @@ def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False,
     experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2].split('/')[-1],
                                 str(epochs), str(learning_rate), str(batch_size), str(mlp), str(frozen)])
     experiment_dir = os.path.join(results_dir, experiment_name)
-    checkpoints_dir = os.path.join(results_dir, experiment_name, 'checkpoints')
     stats_filename = os.path.join(results_dir, experiment_name, 'stats.pth')
     os.makedirs(experiment_dir, exist_ok=True)
-    os.makedirs(checkpoints_dir, exist_ok=True)
     output_file = open(os.path.join(results_dir, experiment_name, 'output.log'), 'w')
+    
+    if not frozen:
+        checkpoints_dir = os.path.join(results_dir, experiment_name, 'checkpoints')
+        os.makedirs(checkpoints_dir, exist_ok=True)
     
     np.random.seed(seed)
     torch.manual_seed(seed)
