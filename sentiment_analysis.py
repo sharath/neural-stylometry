@@ -51,9 +51,15 @@ def load_data(dataset, text_list, time_list):
 
 
 
-train, test = get_dataset()
-text, time = [], [] 
-load_data(train, text, time)
-load_data(test, text, time)
-print(len(text))
-print(len(time))
+def main():
+	train, test = get_dataset()
+	text, time = [], [] 
+	load_data(train, text, time)
+	load_data(test, text, time)
+
+	for i in time[:10]:
+		print(i)
+
+
+if __name__ == '__main__':
+	main()
