@@ -106,7 +106,7 @@ def main():
 	pos_vals = np.fromiter(pos_bins.values(), dtype=int)
 	neg_vals = np.fromiter(neg_bins.values(), dtype=int)
 
-	assert pos_vals.shape[0] == 24
+	print(pos_vals.shape, neg_vals.shape)
 	print(np.sum(pos_vals), np.sum(neg_vals))
 
 	time = np.array([(datetime.combine(date.today(), base) + timedelta(hours=i)).time() for i in range(24)])
