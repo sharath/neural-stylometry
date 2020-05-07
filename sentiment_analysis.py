@@ -90,7 +90,7 @@ def main():
 		pos_bins[t] = 0
 		neg_bins[t] = 0
 
-	for i in tqdm(len(texts)):
+	for i in tqdm(range(len(texts))):
 		sid = SentimentIntensityAnalyzer()
 
 		seq = texts[i] 
