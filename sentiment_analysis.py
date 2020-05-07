@@ -38,6 +38,7 @@ def load_data(dataset):
                     remove = False
                     if date_tag in line:
                         time.append(line)
+                        print(line)
                         continue
                     for t in exclude_headers:
                         if t in line:
