@@ -37,9 +37,8 @@ def load_data(dataset):
                 for line in lines:
                     remove = False
                     if date_tag in line:
-                        time.append(line)
-                        print(line)
-                        continue
+                        curr_time = line
+                        remove = True 
                     for t in exclude_headers:
                         if t in line:
                             remove = True
@@ -47,7 +46,9 @@ def load_data(dataset):
                         continue
                     stripped.append(line)
                 tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower())]
+                print(curr_time, ' '.join(tokens))
                 text.append(' '.join(tokens))
+                time.append(curr_time)
     return text, time
 
 
