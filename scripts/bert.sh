@@ -1,2 +1,5 @@
 #!/bin/sh
-python3 -m bert
+
+config=$1
+
+python3 -m bert $config
