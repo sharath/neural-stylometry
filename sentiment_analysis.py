@@ -65,7 +65,7 @@ def main():
 		match = re.search(r'\d{2}:\d{2}-\d{2}', time[i])
 		print(match) 
 		seq = text[i] 
-		ss = sid.polarity_score(seq)
+		ss = sid.polarity_scores(seq)
 		print(ss)
 
 
