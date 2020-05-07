@@ -85,10 +85,11 @@ def main():
 		'neu': 0
 	}
 
-	pos_bins, neg_bins = {}, {}
+	pos_bins, neg_bins, total_bins = {}, {}, {}
 	for t in range(48):
 		pos_bins[t] = 0
 		neg_bins[t] = 0
+		total_bins[t] = 0
 
 	for i in tqdm(range(len(texts))):
 		sid = SentimentIntensityAnalyzer()
@@ -104,12 +105,17 @@ def main():
 				pos_bins[curr_bin] += 1
 			else:
 				neg_bins[curr_bin] += 1
+			total_bins[curr_bin] += 1
+
+	for t in range(48):
+		pos_bins[t] = pos_bins[t] / total_bins[t]
+		neg_bins[t] = neg_bins[t] / total_bins[t]
 
 	pos_vals = np.fromiter(pos_bins.values(), dtype=int)
 	neg_vals = np.fromiter(neg_bins.values(), dtype=int)
 
-	print(pos_vals.shape, neg_vals.shape)
-	print(np.sum(pos_vals), np.sum(neg_vals))
+	# print(pos_vals.shape, neg_vals.shape)
+	# print(np.sum(pos_vals), np.sum(neg_vals))
 
 	base = time(0, 0, 0)
 	hour_list = np.array([datetime.combine(date.today(), base) + timedelta(minutes=i*30) for i in range(48)])
