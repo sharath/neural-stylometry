@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from tqdm import tqdm
 import re 
 from datetime import datetime, date, time, timedelta
 from collections import defaultdict
@@ -82,10 +83,12 @@ def main():
 		'neu': 0
 	}
 
-	pos_bins = defaultdict(int)
-	neg_bins = defaultdict(int)
+	pos_bins, neg_bins = {}, {}
+	for t in range(48):
+		pos_bins[t] = 0
+		neg_bins[t] = 0
 
-	for i in range(len(text)):
+	for i in tqdm(range(len(text))):
 		sid = SentimentIntensityAnalyzer()
 
 		seq = text[i] 
