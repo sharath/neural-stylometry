@@ -2,6 +2,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import os, sys
+import pickle
 import nltk
 import numpy as np
 import pandas as pd
@@ -13,7 +14,8 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from transformers import *
 from argparse import ArgumentParser
-from common import get_dataset
+from nltk.parse import CoreNLPParser
+from nltk.tokenize import word_tokenize
 
 exclude_headers = [
     "Message-ID:",
@@ -33,35 +35,42 @@ exclude_headers = [
     "X-FileName:"
 ]
 
-
-def load_data(dataset, label_to_idx):
+def load_preprocessed_data(dataset_dir, split, label_to_idx=None, idx_to_label=None):
+    filenames = [i for i in os.listdir(dataset_dir) if f'{split}.p' in i]
+    
     x, y = [], []
-    for label, files in dataset.items():
-        for file in files:
-            with open(file, 'r') as fp:
-                lines = fp.readlines()
-                stripped = []
-                for line in lines:
-                    remove = False
-                    for t in exclude_headers:
-                        if t in line:
-                            remove = True
-                    if remove:
-                        continue
-                    stripped.append(line)
-                tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower())]
-                x.append(' '.join(tokens))
-                y.append(label_to_idx[label])
-    return x, y
+    
+    if label_to_idx is None:
+        label_to_idx, idx_to_label = {}, {}    
+    idx = max(list(idx_to_label.keys())) if len(idx_to_label) != 0 else 0
+    
+    for filename in filenames:
+        file_path = os.path.join(dataset_dir, filename)
+        label, split = filename.split('_')
+        
+        if label not in label_to_idx:
+            label_to_idx[label] = idx
+            idx_to_label[idx] = label
+            idx += 1
+        
+        with open(file_path, 'rb') as fp:
+            data = pickle.load(fp)
+        
+            x.extend(data)
+            y.extend([label_to_idx[label]]*len(data))
+            
+    return x, y, label_to_idx, idx_to_label
+        
+        
 
 class EnronDataset(Dataset):
 
-    def __init__(self, df, config, max_len=512):
+    def __init__(self, df, config, max_len, mask_tokens):
         self.df = df
 
         self.model_class, self.tokenizer_class, self.pretrained_weights = config
         self.tokenizer = self.tokenizer_class.from_pretrained(self.pretrained_weights)
-
+        self.tokenizer.add_tokens(mask_tokens)
         self.max_len = max_len
 
     def __len__(self):
@@ -86,6 +95,7 @@ class BertEnron(nn.Module):
         super(BertEnron, self).__init__()
         self.model_class, self.tokenizer_class, self.pretrained_weights = config
         self.lm_layer = self.model_class.from_pretrained(self.pretrained_weights)
+        
         self.frozen = frozen
         self.main = nn.Sequential(
             nn.Linear(768, nclasses)
@@ -100,17 +110,23 @@ class BertEnron(nn.Module):
         cls_token = last_hidden_states[:, 0, :].detach() if self.frozen else last_hidden_states[:, 0, :]
         return self.main(cls_token)
 
-def create_labels(dataset):
-    label_to_idx, idx_to_label = {}, {}
-    for idx, label in enumerate(list(dataset.keys())):
-        label_to_idx[label] = idx
-        idx_to_label[idx] = label
-    return label_to_idx, idx_to_label
+def mask_dataset_dir(mask_type):
+    
+    if mask_type == 'none':
+        dataset_dir = os.path.join('preprocessed_datasets', 'unmasked')
+        mask_tokens = []
+    elif mask_type == 'ner':
+        dataset_dir = os.path.join('preprocessed_datasets', 'ner')
+        mask_tokens = ['[NER]']
+    
+    return dataset_dir, mask_tokens
+    
+    
+def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False, frozen=False, mask_type='none',
+         results_dir='results', device='cuda'):
 
-
-def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False, frozen=False, results_dir='results', device='cuda'):
     experiment_name = '_'.join([str(seed), config[0].__name__, config[1].__name__, config[2].split('/')[-1],
-                                str(epochs), str(learning_rate), str(batch_size), str(mlp), str(frozen)])
+                                str(epochs), str(learning_rate), str(batch_size), str(mlp), str(frozen), mask_type])
     experiment_dir = os.path.join(results_dir, experiment_name)
     stats_filename = os.path.join(results_dir, experiment_name, 'stats.pth')
     os.makedirs(experiment_dir, exist_ok=True)
@@ -125,18 +141,17 @@ def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False,
     torch.cuda.manual_seed_all(seed)
     
     print('Loading dataset into memory.', file=output_file, flush=True)
-    train, test = get_dataset()
-    label_to_idx, idx_to_label = create_labels(train)
-    nclasses = len(train.keys())
     
-    x_train, y_train = load_data(train, label_to_idx)
-    x_test, y_test = load_data(test, label_to_idx)
+    dataset_dir, mask_tokens = mask_dataset_dir(mask_type)
+    x_train, y_train, label_to_idx, idx_to_label = load_preprocessed_data(dataset_dir, 'train')
+    x_test, y_test, label_to_idx, idx_to_label = load_preprocessed_data(dataset_dir, 'test', label_to_idx, idx_to_label)
+    nclasses = len(label_to_idx.keys())
     
     train = pd.DataFrame(list(zip(x_train, y_train)), columns=['Text', 'Label'])
     test = pd.DataFrame(list(zip(x_test, y_test)), columns=['Text', 'Label'])
     
-    train_data = EnronDataset(df=train, config=config)
-    test_data = EnronDataset(df=test, config=config)
+    train_data = EnronDataset(df=train, config=config, max_len=512, mask_tokens=mask_tokens)
+    test_data = EnronDataset(df=test, config=config, max_len=512, mask_tokens=mask_tokens)
     
     train_dataloader = DataLoader(train_data, batch_size=batch_size, num_workers=2, shuffle=True)
     test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=2)
@@ -145,8 +160,7 @@ def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False,
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    
-    
+        
     stats = {'epoch':[], 'loss':[], 'train_accuracy':[], 'test_accuracy':[]}
     for epoch in range(1, epochs+1):
         epoch_loss = []
@@ -194,8 +208,9 @@ def main(config, seed=0, epochs=3, learning_rate=2e-5, batch_size=32, mlp=False,
         if not frozen:
             torch.save(model.state_dict(), os.path.join(checkpoints_dir, f'model-{epoch}.pth'))
         
-    torch.save(model.state_dict(), os.path.join(checkpoints_dir, 'model-trained.pth'))
+    torch.save(model.state_dict(), os.path.join(experiment_name, 'model-trained.pth'))
     output_file.close()
+    
     
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -207,6 +222,8 @@ if __name__ == '__main__':
     parser.add_argument('--results_dir', type=str, default='results', help='results directory')
     parser.add_argument('--frozen', default=False, action='store_true', help='use frozen model?')
     parser.add_argument('--mlp', default=False, action='store_true', help='use mlp classifier?')
+    parser.add_argument('--mask_type', type=str, default='none', help='type of masking')
+    
     args = parser.parse_args()
     
 
@@ -215,4 +232,4 @@ if __name__ == '__main__':
               (RobertaModel,    RobertaTokenizer,    'roberta-base'),
               (AutoModel,       AutoTokenizer,       'SpanBERT/spanbert-base-cased')][args.config_id]
     
-    main(config, seed=args.seed, epochs=args.epochs, learning_rate=args.learning_rate, batch_size=args.batch_size, mlp=args.mlp, frozen=args.frozen, results_dir=args.results_dir)
+    main(config, seed=args.seed, epochs=args.epochs, learning_rate=args.learning_rate, batch_size=args.batch_size, mlp=args.mlp, frozen=args.frozen, mask_type=args.mask_type, results_dir=args.results_dir)
