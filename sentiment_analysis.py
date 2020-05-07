@@ -90,7 +90,7 @@ def main():
 		pos_bins[t] = 0
 		neg_bins[t] = 0
 
-	for i in tqdm(range(5000)):
+	for i in tqdm(len(texts)):
 		sid = SentimentIntensityAnalyzer()
 
 		seq = texts[i] 
@@ -120,7 +120,7 @@ def main():
 
 	xformatter = mdates.DateFormatter('%H:%M')
 	plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
-	
+
 	plt.xlabel('Time during the day')
 	plt.ylabel('Count')
 	plt.title('Distribution of positive and negative emails throughout the day')
