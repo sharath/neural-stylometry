@@ -115,7 +115,7 @@ def mask_dataset_dir(mask_type):
     if mask_type == 'none':
         dataset_dir = os.path.join('preprocessed_datasets', 'unmasked')
         mask_tokens = []
-    else mask_type == 'ner':
+    else:
         dataset_dir = os.path.join('preprocessed_datasets', mask_type)
         mask_tokens = [f'[{mask_type.upper()}]']
     
