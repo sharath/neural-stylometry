@@ -136,7 +136,7 @@ def main():
     train_data = EnronDataset(df=train, config=config)
     test_data = EnronDataset(df=test, config=config)
     
-    train_dataloader = DataLoader(train_data, batch_size=batch_size, num_workers=2)
+    train_dataloader = DataLoader(train_data, batch_size=batch_size, num_workers=2, shuffle=True)
     test_dataloader = DataLoader(test_data, batch_size=batch_size, num_workers=2)
     
     model = nn.DataParallel(BertEnron(config=config, nclasses=nclasses)).to(device)
