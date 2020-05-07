@@ -108,10 +108,14 @@ def main():
 			total_bins[curr_bin] += 1
 
 	for t in range(48):
-		if total_bins[t] != 0:
-			pos_bins[t] = pos_bins[t] / total_bins[t]
-			neg_bins[t] = neg_bins[t] / total_bins[t]
+		if total_bins[t] == 0:
+			continue
 
+		pos_bins[t] = pos_bins[t] / total_bins[t]
+		neg_bins[t] = neg_bins[t] / total_bins[t]
+
+	print(pos_vals)
+	print(neg_vals)
 	pos_vals = np.fromiter(pos_bins.values(), dtype=int)
 	neg_vals = np.fromiter(neg_bins.values(), dtype=int)
 
@@ -121,7 +125,6 @@ def main():
 	base = time(0, 0, 0)
 	hour_list = np.array([datetime.combine(date.today(), base) + timedelta(minutes=i*30) for i in range(48)])
 	
-
 	plt.plot(hour_list, pos_vals, label='Positive')
 	plt.plot(hour_list, neg_vals, label='Negative')
 
