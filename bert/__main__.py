@@ -117,7 +117,7 @@ def main():
     device = 'cuda'
     epochs = 3
     learning_rate = 2e-5
-    batch_size = 16
+    batch_size = 32
     
     print('Start loading data', flush=True)
     
@@ -166,6 +166,8 @@ def main():
             correct += torch.sum(pred.argmax(1) == target).item()
             total += len(target)
             
+            print(f"Epoch {epoch}\tBatch {idx+1} / {len(train_dataloader)}\tLoss: {np.mean(epoch_loss):.5f}\tTrain: {correct / total:.5f}", flush=True)
+            
         train_accuracy = correct / total
         
         model.eval()
@@ -182,9 +184,9 @@ def main():
         
         stats['epoch'].append(epoch)
         stats['loss'].append(np.mean(epoch_loss))
-        stats['train_accuracy'].append(np.mean(train_accuracy))
-        stats['test_accuracy'].append(np.mean(test_accuracy))
-        print(f"{stats['epoch'][-1]}\t{stats['loss'][-1]:.5f}\t{stats['train_accuracy'][-1]:.5f}\t{stats['test_accuracy'][-1]:.5f}", flush=True)
+        stats['train_accuracy'].append(train_accuracy)
+        stats['test_accuracy'].append(test_accuracy)
+        print(f"Epoch {stats['epoch'][-1]} Summary\tLoss: {stats['loss'][-1]:.5f}\tTrain: {stats['train_accuracy'][-1]:.5f}\tTest: {stats['test_accuracy'][-1]:.5f}", flush=True)
         
         torch.save(model.state_dict(), f'bert-{epoch}.pth')
         torch.save(stats, f'bert-stats.pth')
