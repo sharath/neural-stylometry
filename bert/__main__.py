@@ -45,7 +45,7 @@ exclude_headers = [
 words = set(nltk.corpus.words.words())
 
 
-def load_data(dataset):
+def load_data(dataset, label_to_idx_dict):
     print('Loading dataset into memory.')
     x, y = [], []
     for label, files in dataset.items():
@@ -63,7 +63,7 @@ def load_data(dataset):
                     stripped.append(line)
                 tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower()) if i in words and '@enron.com' not in i]
                 x.append(' '.join(tokens))
-                y.append(label_to_idx[label])
+                y.append(label_to_idx_dict[label])
     return x, y
 
 
@@ -93,8 +93,8 @@ if debug:
     train, test = train_subset, test_subset
 
 
-x_train, y_train = load_data(train)
-x_test, y_test = load_data(test)
+x_train, y_train = load_data(train, label_to_idx)
+x_test, y_test = load_data(test, label_to_idx)
 
 train = pd.DataFrame(list(zip(x_train, y_train)), columns=['Text', 'Label'])
 test = pd.DataFrame(list(zip(x_test, y_test)), columns=['Text', 'Label'])
@@ -150,8 +150,8 @@ config = (BertModel, BertTokenizer, 'bert-base-uncased')
 train_data = EnronDataset(df=train, config=config)
 test_data = EnronDataset(df=test, config=config)
 
-train_loader = DataLoader(train_data, batch_size=8, num_workers=2)
-test_loader = DataLoader(test_data, batch_size=8, num_workers=2)
+train_loader = DataLoader(train_data, batch_size=8, num_workers=2, shuffle=True)
+test_loader = DataLoader(test_data, batch_size=8, num_workers=2, shuffle=True)
 
 enron_net = BertEnron(num_classes=num_labels, config=config).to(device)
 
@@ -204,8 +204,8 @@ def evaluate(model, loader):
     total = 0.0
     with torch.no_grad():
         for i, data in enumerate(loader):
-            input_ids, attn_mask, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
-            outputs = model(input_ids, attn_mask)
+            input_ids, attn_masks, labels = data[0].squeeze(dim=1).to(device), data[1].squeeze(dim=1).to(device), data[2].to(device)
+            outputs = model(input_ids, attn_masks)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
