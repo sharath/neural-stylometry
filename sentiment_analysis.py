@@ -1,8 +1,10 @@
 import numpy as np 
+import matplotlib.pyplot as plt
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import re 
-from datetime import datetime
+from datetime import datetime, date, time, timedelta
+from collections import defaultdict
 import os, sys
 from common import get_dataset
 
@@ -62,6 +64,12 @@ def get_sentiment(out):
 		return 'neu'
 
 
+def get_time_bin(timestamp):
+	match = re.search(r'\d{2}:\d{2}:\d{2}', timestamp).group().split(':')
+	val = int(match[0]) * 60 * 60 + int(match[1]) * 60 + int(match[2])
+	return val // (30 * 60)
+
+
 def main():
 	train, test = get_dataset()
 	text, time = [], [] 
@@ -74,14 +82,41 @@ def main():
 		'neu': 0
 	}
 
+	pos_bins = defaultdict(int)
+	neg_bins = defaultdict(int)
+
 	for i in range(len(text)):
 		sid = SentimentIntensityAnalyzer()
-		match = re.search(r'\d{2}:\d{2}:\d{2}', time[i])
-		# print(match) 
+
 		seq = text[i] 
 		ss = sid.polarity_scores(seq)
-		sent = get_sentiment(ss)
-		sentiment_counter[sent] += 1
+		sentiment = get_sentiment(ss)
+		sentiment_counter[sentiment] += 1
+
+		if sentiment == 'pos' or sentiment == 'neg':
+			curr_bin = get_time_bin(time[i])
+			if sentiment == 'pos':
+				pos_bins[curr_bin] += 1
+			else:
+				neg_bins[curr_bin] += 1
+
+	pos_vals = np.fromiter(pos_bins.values(), dtype=int)
+	neg_vals = np.fromiter(neg_bins.values(), dtype=int)
+
+	assert pos_vals.shape[0] == 24
+	print(np.sum(pos_vals), np.sum(neg_vals))
+
+	time = np.array([(datetime.combine(date.today(), base) + timedelta(hours=i)).time() for i in range(24)])
+
+	plt.plot(time, pos_vals, label='Positive')
+	plt.plot(time, neg_vals, label='Negative')
+	plt.xlabel('Time during the day')
+	plt.ylabel('Count')
+	plt.title('Distribution of positive and negative emails throughout the day')
+	plt.legend(loc='best')
+	plt.savefig('bin_plot.png')
+	plt.close()
+
 	print(sentiment_counter)
 
 
