@@ -36,13 +36,13 @@ def load_data(dataset):
                 stripped = []
                 for line in lines:
                     remove = False
+                    if date_tag in line:
+                        time.append(line)
+                        continue
                     for t in exclude_headers:
                         if t in line:
                             remove = True
                     if remove:
-                        continue
-                    if date_tag in line:
-                        time.append(line)
                         continue
                     stripped.append(line)
                 tokens = [i for i in nltk.wordpunct_tokenize(''.join(stripped).lower())]
